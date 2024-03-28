@@ -1,9 +1,9 @@
+.idea
 .venv
 *.log*
 .nitro
 .cache
 .output
-.idea
 dist
 .temp
 Pipfile.lock
