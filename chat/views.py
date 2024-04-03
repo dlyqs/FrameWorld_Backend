@@ -11,7 +11,7 @@ import time
 import datetime
 import tiktoken
 import logging
-
+from django.utils.timezone import localtime
 from provider.models import ApiKey
 from stats.models import TokenUsage
 from .models import Conversation, Message, EmbeddingDocument, Setting, Prompt
@@ -23,7 +23,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes, action
-from .serializers import ConversationSerializer, MessageSerializer, PromptSerializer, EmbeddingDocumentSerializer, SettingSerializer
+from .serializers import ConversationSerializer, MessageSerializer, PromptSerializer, EmbeddingDocumentSerializer, \
+    SettingSerializer
 from utils.search_prompt import compile_prompt
 from utils.duckduckgo_search import web_search, SearchRequest
 from .tools import TOOL_LIST
@@ -31,11 +32,12 @@ from .llm import get_embedding_document, unpick_faiss, langchain_doc_chat
 from .llm import setup_openai_env as llm_openai_env
 from .llm import setup_openai_model as llm_openai_model
 
-
 logger = logging.getLogger(__name__)
+
 
 class SettingViewSet(viewsets.ModelViewSet):
     serializer_class = SettingSerializer
+
     # permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
@@ -72,6 +74,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     serializer_class = MessageSerializer
     # authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
+
     # queryset = Message.objects.all()
 
     def get_queryset(self):
@@ -232,12 +235,25 @@ def sse_pack(event, data):
     return packet
 
 
+source_page_translation = {
+    'idea': '构思',
+    'description': '文案',
+    'welcome': '首页',
+}
+
+
+def translate_source_page(source_page):
+    # 如果source_page在映射表中，则返回对应的中文，否则直接返回原值
+    return source_page_translation.get(source_page, source_page)
+
+
 @api_view(['POST'])
 # @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def gen_title(request):
     conversation_id = request.data.get('conversationId')
     source_page = request.data.get('source_page', '')
+    created = request.data.get('created_at', '')
     prompt = request.data.get('prompt')
     conversation_obj = Conversation.objects.get(id=conversation_id)
     message = Message.objects.filter(conversation_id=conversation_id).order_by('created_at').first()
@@ -284,7 +300,10 @@ def gen_title(request):
         increase_token_usage(request.user, openai_response['usage']['total_tokens'], api_key)
     except Exception as e:
         print(e)
-        title = 'Untitled Conversation'
+
+        created_at_formatted = localtime(conversation_obj.created_at).strftime('%m/%d %H:%M')
+        title = f"{translate_source_page(source_page)} {created_at_formatted}"
+
     # update the conversation title
     conversation_obj.topic = title
     conversation_obj.source_page = source_page
@@ -301,7 +320,7 @@ def gen_title(request):
 @permission_classes([IsAuthenticated])
 def upload_conversations(request):
     """allow user to import a list of conversations"""
-    user=request.user
+    user = request.user
     import_err_msg = 'bad_import'
     conversation_ids = []
     try:
@@ -355,7 +374,7 @@ def upload_conversations(request):
             {'error': import_err_msg},
             status=status.HTTP_400_BAD_REQUEST
         )
-    
+
     # return a list of new conversation id
     return Response(conversation_ids)
 
@@ -414,7 +433,8 @@ def conversation(request):
     llm_openai_model(model)
 
     try:
-        messages = build_messages(model, request.user, conversation_id, message_object_list, web_search_params, system_content, frugal_mode, tool, message_type)
+        messages = build_messages(model, request.user, conversation_id, message_object_list, web_search_params,
+                                  system_content, frugal_mode, tool, message_type)
         # message_object_list will be changed in build_messages
 
         new_doc_id = messages.get('doc_id', None)
@@ -479,7 +499,7 @@ def conversation(request):
                     'error': e
                 },
                 status=status.HTTP_400_BAD_REQUEST
-            ) 
+            )
 
         collected_events = []
         completion_text = ''
@@ -568,7 +588,7 @@ def conversation(request):
                         completion_text += str(text)
                         yield sse_pack('message', {'content': str(text)})
             bot_message_type = Message.plain_message_type
-        else:   # else, this message was not produced by AI
+        else:  # else, this message was not produced by AI
             if new_doc_title:
                 completion_text = f'{new_doc_title} added.'
             else:
@@ -615,7 +635,8 @@ def documents(request):
     pass
 
 
-def create_message(user, conversation_id, message, is_bot=False, message_type=0, embedding_doc_id=None, messages='', tokens=0, api_key=None):
+def create_message(user, conversation_id, message, is_bot=False, message_type=0, embedding_doc_id=None, messages='',
+                   tokens=0, api_key=None):
     message_obj = Message(
         conversation_id=conversation_id,
         user=user,
@@ -644,7 +665,8 @@ def increase_token_usage(user, tokens, api_key=None):
         api_key.save()
 
 
-def build_messages(model, user, conversation_id, new_messages, web_search_params, system_content, frugal_mode = False, tool = None, message_type=0):
+def build_messages(model, user, conversation_id, new_messages, web_search_params, system_content, frugal_mode=False,
+                   tool=None, message_type=0):
     if conversation_id:
         ordered_messages = Message.objects.filter(conversation_id=conversation_id).order_by('created_at')
         ordered_messages_list = list(ordered_messages)
@@ -653,7 +675,7 @@ def build_messages(model, user, conversation_id, new_messages, web_search_params
 
     ordered_messages_list += [{
         'is_bot': False,
-        'message': msg['content'], 
+        'message': msg['content'],
         'message_type': message_type,
         'embedding_message_doc': msg.get('embedding_message_doc', None),
     } for msg in new_messages]
@@ -692,7 +714,8 @@ def build_messages(model, user, conversation_id, new_messages, web_search_params
         message_type = message['message_type']
         if web_search_params is not None and first_msg:
             search_results = web_search(SearchRequest(message['message'], ua=web_search_params['ua']), num_results=5)
-            message_content = compile_prompt(search_results, message['message'], default_prompt=web_search_params['default_prompt'])
+            message_content = compile_prompt(search_results, message['message'],
+                                             default_prompt=web_search_params['default_prompt'])
         if tool and first_msg:  # apply to latest message only
             tool_name = tool['name']
             func = TOOL_LIST.get(tool_name, None)
@@ -772,7 +795,7 @@ def build_messages(model, user, conversation_id, new_messages, web_search_params
 
 def get_current_model(model_name, request_max_response_tokens):
     if model_name is None:
-        model_name ="gpt-3.5-turbo"
+        model_name = "gpt-3.5-turbo"
     model = MODELS[model_name]
     if request_max_response_tokens is not None:
         model['max_response_tokens'] = int(request_max_response_tokens)
@@ -799,16 +822,12 @@ def num_tokens_from_text(text, model="gpt-3.5-turbo-0301"):
         encoding = tiktoken.get_encoding("cl100k_base")
 
     if model == "gpt-3.5-turbo":
-        print("Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
         return num_tokens_from_text(text, model="gpt-3.5-turbo-0613")
     elif model == "gpt-3.5-turbo-16k":
-        print("Warning: gpt-3.5-turbo-16k may change over time. Returning num tokens assuming gpt-3.5-turbo-16k-0613.")
         return num_tokens_from_text(text, model="gpt-3.5-turbo-16k-0613")
     elif model == "gpt-4":
-        print("Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0314.")
         return num_tokens_from_text(text, model="gpt-4-0613")
     elif model == "gpt-4-32k":
-        print("Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0314.")
         return num_tokens_from_text(text, model="gpt-4-32k-0613")
 
     if model not in ["gpt-3.5-turbo-0613", "gpt-4-0613", "gpt-3.5-turbo-16k-0613", "gpt-4-32k-0613"]:
@@ -825,16 +844,12 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
         print("Warning: model not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
     if model == "gpt-3.5-turbo":
-        print("Warning: gpt-3.5-turbo may change over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
     elif model == "gpt-3.5-turbo-16k":
-        print("Warning: gpt-3.5-turbo-16 may change over time. Returning num tokens assuming gpt-3.5-turbo-16k-0613.")
         return num_tokens_from_messages(messages, model="gpt-3.5-turbo-16k-0613")
     elif model == "gpt-4":
-        print("Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0613.")
         return num_tokens_from_messages(messages, model="gpt-4-0613")
     elif model == "gpt-4-32k":
-        print("Warning: gpt-4 may change over time. Returning num tokens assuming gpt-4-0613.")
         return num_tokens_from_messages(messages, model="gpt-4-32k-0613")
     elif model == "gpt-3.5-turbo-0613":
         tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
@@ -849,7 +864,8 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
         tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
         tokens_per_name = -1  # if there's a name, the role is omitted
     else:
-        raise NotImplementedError(f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
+        raise NotImplementedError(
+            f"""num_tokens_from_messages() is not implemented for model {model}. See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
     num_tokens = 0
     for message in messages:
         num_tokens += tokens_per_message
