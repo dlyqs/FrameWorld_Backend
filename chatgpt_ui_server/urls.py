@@ -26,4 +26,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/search/', include('search.urls')),
     path('api/search/video_bili/', include('search.urls')),
+    path('api/frameworld/', include('frameworld.urls')),
 ]

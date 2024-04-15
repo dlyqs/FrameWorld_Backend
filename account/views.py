@@ -2,8 +2,27 @@ from rest_framework.response import Response
 from rest_framework import status
 from dj_rest_auth.registration.views import RegisterView
 from chat.models import Setting
-from allauth.account import app_settings as allauth_account_settings
+from django.shortcuts import get_object_or_404
+from django.contrib.auth import get_user_model
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from .serializers import UserDetailsSerializer
+from rest_framework import viewsets
+User = get_user_model()
 
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserDetailsSerializer
+
+class UserByIdView(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserDetailsSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        user_id = self.kwargs.get('user_id')
+        return get_object_or_404(User, id=user_id)
 
 class RegistrationView(RegisterView):
     def create(self, request, *args, **kwargs):
@@ -20,8 +39,6 @@ class RegistrationView(RegisterView):
         user = self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         data = self.get_response_data(user)
-
-        data['email_verification_required'] = allauth_account_settings.EMAIL_VERIFICATION
 
         if data:
             response = Response(

@@ -1,54 +1,34 @@
-import os
-import sys
-import logging
 import asyncio
-import threading
-import queue
-import pickle
-from typing import Any, Dict, Optional, Union, Mapping
-import uuid
-from uuid import UUID
-import faiss
 import hashlib
+import logging
+import pickle
+import queue
+import threading
+from typing import Any, Dict, Optional, Union
+from uuid import UUID
 
+import faiss
 import openai
-from langchain.document_loaders import (
-    TextLoader,
-    PyPDFLoader,
-    Docx2txtLoader,
-    UnstructuredPowerPointLoader,
-)
-
-from langchain.text_splitter import RecursiveCharacterTextSplitter  # generic
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
-from langchain.prompts.prompt import PromptTemplate
-
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import (
-    AIMessage,
-    HumanMessage,
-    SystemMessage,
-    ChatGeneration,
-    ChatResult,
+from langchain.callbacks.base import (
+    BaseCallbackHandler,
 )
 from langchain.chains import (
     LLMChain,
     ConversationalRetrievalChain,
 )
 from langchain.chains.question_answering import load_qa_chain
-from langchain.chains.conversational_retrieval.prompts import CONDENSE_QUESTION_PROMPT
+from langchain.chat_models import ChatOpenAI
+from langchain.document_loaders import (
+    TextLoader,
+    PyPDFLoader,
+    Docx2txtLoader,
+    UnstructuredPowerPointLoader,
+)
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.memory import ConversationBufferWindowMemory
-from langchain.callbacks import get_openai_callback
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.callbacks.base import (
-    BaseCallbackHandler,
-    AsyncCallbackHandler,
-)
-from langchain.callbacks.manager import (
-    CallbackManagerForChainRun,
-    AsyncCallbackManagerForChainRun,
-)
+from langchain.prompts.prompt import PromptTemplate
+from langchain.text_splitter import RecursiveCharacterTextSplitter  # generic
+from langchain.vectorstores import FAISS
 
 logger = logging.getLogger(__name__)
 
