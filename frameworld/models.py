@@ -12,6 +12,7 @@ class Entry(models.Model):
     y_frame_size = models.FloatField()
     douban_url = models.URLField(blank=True, null=True)
     imdb_url = models.URLField(blank=True, null=True)
+    cover_url = models.URLField(blank=True, null=True)
 
     def __str__(self):
         return self.title
@@ -44,3 +45,12 @@ class Subtitle(models.Model):
     content = models.TextField()
     duration = models.FloatField()
     author = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+
+
+class LikeRecord(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    comment = models.ForeignKey(GlobalComment, on_delete=models.CASCADE)
+    status = models.BooleanField(default=False)  # True for liked, False for no like
+
+    class Meta:
+        unique_together = ('user', 'comment')

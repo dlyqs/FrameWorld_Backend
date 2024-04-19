@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Entry, GlobalComment, FrameComment, Subtitle
+from .models import Entry, GlobalComment, FrameComment, Subtitle, LikeRecord
 
 
 class EntrySerializer(serializers.ModelSerializer):
@@ -24,3 +24,9 @@ class SubtitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subtitle
         fields = '__all__'
+
+
+class LikeRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LikeRecord
+        fields = ['id', 'user', 'comment', 'status']
