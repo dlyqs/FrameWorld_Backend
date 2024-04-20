@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
 from rest_framework import viewsets
@@ -54,6 +55,27 @@ class GlobalCommentViewSet(viewsets.ModelViewSet):
 
         LikeRecord.objects.filter(comment=comment).delete()  # Delete associated like records
         comment.delete()  # Delete the comment
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['delete'])
+    def delete_with_replies(self, request, pk=None):
+        """
+        Deletes a comment and all its replies, including their like records.
+        """
+        root_comment = self.get_object()
+        if root_comment.user != request.user:
+            return Response({"detail": "You do not have permission to delete this comment."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        with transaction.atomic():
+            replies = GlobalComment.objects.filter(parentID=root_comment.id)
+            reply_ids = replies.values_list('id', flat=True)
+
+            LikeRecord.objects.filter(comment__id__in=reply_ids).delete()
+            replies.delete()
+
+            LikeRecord.objects.filter(comment=root_comment).delete()
+            root_comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

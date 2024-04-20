@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'dj_rest_auth',
     'dj_rest_auth.registration',
+    'account.apps.AccountConfig',
     'chat.apps.ChatConfig',
     'stats.apps.StatsConfig',
     'provider.apps.ProviderConfig',
@@ -177,3 +178,5 @@ SIMPLE_JWT = {
 # 在 settings.py 中添加或确认以下设置
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
+
+
