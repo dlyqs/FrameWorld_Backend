@@ -30,3 +30,9 @@ class LikeRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = LikeRecord
         fields = ['id', 'user', 'comment', 'status']
+
+
+class FrameLikeRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LikeRecord
+        fields = ['id', 'user', 'comment', 'status']

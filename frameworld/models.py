@@ -13,6 +13,16 @@ class Entry(models.Model):
     douban_url = models.URLField(blank=True, null=True)
     imdb_url = models.URLField(blank=True, null=True)
     cover_url = models.URLField(blank=True, null=True)
+    year = models.IntegerField(blank=True, null=True)
+    duration = models.CharField(max_length=100, blank=True, null=True)
+    genre = models.CharField(max_length=100, blank=True, null=True)
+    director = models.CharField(max_length=255, blank=True, null=True)
+    cast = models.CharField(max_length=255, blank=True, null=True)
+    writer = models.CharField(max_length=255, blank=True, null=True)
+    douban_rating = models.FloatField(blank=True, null=True)
+    imdb_rating = models.FloatField(blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+    imdb_rank = models.IntegerField(blank=True, null=True)
 
     def __str__(self):
         return self.title
@@ -30,6 +40,7 @@ class GlobalComment(models.Model):
 
 class FrameComment(models.Model):
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
+    time = models.DateTimeField()
     timestamp = models.FloatField()
     content = models.TextField()
     replies = models.TextField(blank=True, null=True)
@@ -50,6 +61,15 @@ class Subtitle(models.Model):
 class LikeRecord(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     comment = models.ForeignKey(GlobalComment, on_delete=models.CASCADE)
+    status = models.BooleanField(default=False)  # True for liked, False for no like
+
+    class Meta:
+        unique_together = ('user', 'comment')
+
+
+class FrameLikeRecord(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    comment = models.ForeignKey(FrameComment, on_delete=models.CASCADE)
     status = models.BooleanField(default=False)  # True for liked, False for no like
 
     class Meta:

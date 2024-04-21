@@ -31,6 +31,10 @@ pip install -r requirements.txt
 
 2、数据库和前后端通信
 - 自己建立数据库，在后端.env文件中配置数据库连接信息DB_URL。若使用默认的sqlite数据库，则为sqlite:///PATH 。
+~~~
+python manage.py makemigrations
+python manage.py migrate
+~~~
 
 3、启动后端
 ~~~
